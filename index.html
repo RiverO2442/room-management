@@ -489,16 +489,23 @@ function toggleAllSplit() {
 }
 
 // ─── Expenses ─────────────────────────────────────────────────────────────────
+function monthDateRange(ms) {
+  const [y, m] = ms.split('-');
+  return { start: `${y}-${m}-01`, end: `${y}-${m}-31` };
+}
+
 function subscribeExpenses() {
-  const today = new Date().toISOString().split('T')[0];
   document.getElementById('dash-month').textContent = monthLabel(monthStr(new Date()));
   if (expenseUnsub) expenseUnsub();
+  const { start, end } = monthDateRange(monthStr(new Date()));
   expenseUnsub = db.collection('expenses')
-    .where('month', '==', monthStr(new Date()))
+    .where('date', '>=', start)
+    .where('date', '<=', end)
     .orderBy('date', 'desc')
-    .onSnapshot(snap => {
-      renderExpenseList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
-    });
+    .onSnapshot(
+      snap => { renderExpenseList(snap.docs.map(d => ({ id: d.id, ...d.data() }))); },
+      err  => { showErr('exp-err', err.message); }
+    );
 }
 
 async function addExpense() {
@@ -607,7 +614,11 @@ function changeMonth(dir) {
 
 async function renderSummary() {
   document.getElementById('sum-month').textContent = monthLabel(summaryMonth);
-  const snap = await db.collection('expenses').where('month', '==', summaryMonth).get();
+  const { start, end } = monthDateRange(summaryMonth);
+  const snap = await db.collection('expenses')
+    .where('date', '>=', start)
+    .where('date', '<=', end)
+    .get();
   const expenses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
   if (!expenses.length) {
