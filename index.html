@@ -183,7 +183,10 @@
           <label>Split among <a href="#" onclick="toggleAllSplit();return false" style="font-weight:400;font-size:11px;margin-left:6px">toggle all</a></label>
           <div class="cb-group" id="exp-split"></div>
         </div>
-        <button class="btn btn-primary btn-block" style="margin-top:6px" onclick="addExpense()">Add Expense</button>
+        <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
+          <button id="exp-submit-btn" class="btn btn-primary btn-block" onclick="addExpense()">Add Expense</button>
+          <a href="#" id="exp-cancel-edit" onclick="cancelEdit();return false" style="display:none;white-space:nowrap;font-size:13px;color:var(--muted)">Cancel</a>
+        </div>
       </div>
 
       <div class="card">
@@ -281,6 +284,8 @@ let allUsers         = [];
 let summaryMonth     = monthStr(new Date());
 let expenseUnsub     = null;
 let _setupInProgress = false;
+let editingExpenseId = null;
+let currentExpenses  = [];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function monthStr(d) {
@@ -507,14 +512,51 @@ async function addExpense() {
   if (!amount || amount <= 0) return showErr('exp-err', 'Enter a valid amount.');
   if (!split.length)      return showErr('exp-err', 'Select at least one person to split with.');
   try {
-    await db.collection('expenses').add({
-      description: desc, amount, paidBy, splitAmong: split,
-      date, month: date.slice(0, 7), createdBy: currentUser.uid,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    document.getElementById('exp-desc').value   = '';
-    document.getElementById('exp-amount').value = '';
+    if (editingExpenseId) {
+      await db.collection('expenses').doc(editingExpenseId).update({
+        description: desc, amount, paidBy, splitAmong: split,
+        date, month: date.slice(0, 7),
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      cancelEdit();
+    } else {
+      await db.collection('expenses').add({
+        description: desc, amount, paidBy, splitAmong: split,
+        date, month: date.slice(0, 7), createdBy: currentUser.uid,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      document.getElementById('exp-desc').value   = '';
+      document.getElementById('exp-amount').value = '';
+    }
   } catch(e) { showErr('exp-err', e.message); }
+}
+
+function startEdit(id) {
+  const e = currentExpenses.find(x => x.id === id);
+  if (!e) return;
+  editingExpenseId = id;
+  document.getElementById('exp-desc').value   = e.description;
+  document.getElementById('exp-amount').value = e.amount;
+  document.getElementById('exp-date').value   = e.date;
+  document.getElementById('exp-paidby').value = e.paidBy;
+  document.querySelectorAll('#exp-split input').forEach(cb => {
+    cb.checked = (e.splitAmong || []).includes(cb.value);
+  });
+  document.getElementById('exp-submit-btn').textContent    = 'Update Expense';
+  document.getElementById('exp-cancel-edit').style.display = 'inline';
+  document.querySelector('#view-dashboard .card').scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelEdit() {
+  editingExpenseId = null;
+  document.getElementById('exp-desc').value   = '';
+  document.getElementById('exp-amount').value = '';
+  document.getElementById('exp-date').value   = new Date().toISOString().split('T')[0];
+  document.getElementById('exp-paidby').value = currentUser.uid;
+  document.querySelectorAll('#exp-split input').forEach(cb => { cb.checked = true; });
+  document.getElementById('exp-submit-btn').textContent    = 'Add Expense';
+  document.getElementById('exp-cancel-edit').style.display = 'none';
+  showErr('exp-err', '');
 }
 
 async function deleteExpense(id) {
@@ -523,6 +565,7 @@ async function deleteExpense(id) {
 }
 
 function renderExpenseList(expenses) {
+  currentExpenses = expenses;
   const el = document.getElementById('exp-list');
   if (!expenses.length) {
     el.innerHTML = '<div class="empty">No expenses this month</div>';
@@ -532,7 +575,7 @@ function renderExpenseList(expenses) {
   let total = 0;
   el.innerHTML = expenses.map(e => {
     total += e.amount;
-    const canDel = currentUserData.role === 'admin' || e.paidBy === currentUser.uid;
+    const canEdit = currentUserData.role === 'admin' || e.paidBy === currentUser.uid;
     const splitNames = (e.splitAmong || []).map(uid => userName(uid)).join(', ');
     return `
       <div class="exp-item">
@@ -543,7 +586,11 @@ function renderExpenseList(expenses) {
         </div>
         <div class="exp-right">
           <div class="exp-amount">${fmt(e.amount)}</div>
-          ${canDel ? `<button class="btn btn-danger btn-sm" onclick="deleteExpense('${e.id}')">Delete</button>` : ''}
+          ${canEdit ? `
+            <div style="display:flex;gap:5px">
+              <button class="btn btn-ghost btn-sm" onclick="startEdit('${e.id}')">Edit</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteExpense('${e.id}')">Delete</button>
+            </div>` : ''}
         </div>
       </div>`;
   }).join('');

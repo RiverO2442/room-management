@@ -21,7 +21,7 @@ service cloud.firestore {
       allow delete: if isAuth() && (
         isAdmin() || resource.data.paidBy == request.auth.uid
       );
-      allow update: if isAdmin();
+      allow update: if isAuth() && (isAdmin() || resource.data.paidBy == request.auth.uid);
     }
   }
 }
