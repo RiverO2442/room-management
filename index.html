@@ -627,12 +627,18 @@ async function renderSummary() {
     return;
   }
 
-  const paid = {}, owed = {};
+  const paid = {}, owed = {}, pairDebt = {};
   allUsers.forEach(u => { paid[u.uid] = 0; owed[u.uid] = 0; });
   expenses.forEach(e => {
     paid[e.paidBy] = (paid[e.paidBy] || 0) + e.amount;
     const share = e.amount / e.splitAmong.length;
-    e.splitAmong.forEach(uid => { owed[uid] = (owed[uid] || 0) + share; });
+    e.splitAmong.forEach(uid => {
+      owed[uid] = (owed[uid] || 0) + share;
+      if (uid !== e.paidBy) {
+        const key = uid + '|' + e.paidBy;
+        pairDebt[key] = (pairDebt[key] || 0) + share;
+      }
+    });
   });
 
   const totalAll = expenses.reduce((s, e) => s + e.amount, 0);
@@ -648,9 +654,7 @@ async function renderSummary() {
     `).join('') +
     `<div class="total-row"><span>Total</span><span>${fmt(totalAll)}</span></div>`;
 
-  const balance = {};
-  allUsers.forEach(u => { balance[u.uid] = (paid[u.uid] || 0) - (owed[u.uid] || 0); });
-  const settlements = calcSettlements(balance);
+  const settlements = calcSettlements(pairDebt);
 
   document.getElementById('sum-settle').innerHTML = settlements.length
     ? settlements.map(s => `
@@ -661,18 +665,19 @@ async function renderSummary() {
     : '<div class="alert alert-success" style="margin:0">Everyone is settled up! 🎉</div>';
 }
 
-function calcSettlements(balance) {
-  const d = Object.entries(balance).filter(([,v]) => v < -0.01).map(([u,v]) => [u, -v]).sort((a,b) => b[1]-a[1]);
-  const c = Object.entries(balance).filter(([,v]) => v >  0.01).map(([u,v]) => [u,  v]).sort((a,b) => b[1]-a[1]);
+function calcSettlements(pairDebt) {
   const result = [];
-  let i = 0, j = 0;
-  while (i < d.length && j < c.length) {
-    const amt = Math.min(d[i][1], c[j][1]);
-    if (amt > 0.01) result.push({ from: d[i][0], to: c[j][0], amount: amt });
-    d[i][1] -= amt;
-    c[j][1] -= amt;
-    if (d[i][1] < 0.01) i++;
-    if (c[j][1] < 0.01) j++;
+  const processed = new Set();
+  for (const [key, amount] of Object.entries(pairDebt)) {
+    if (processed.has(key)) continue;
+    const [from, to] = key.split('|');
+    const reverseKey = to + '|' + from;
+    const reverse = pairDebt[reverseKey] || 0;
+    processed.add(key);
+    processed.add(reverseKey);
+    const net = amount - reverse;
+    if      (net >  0.01) result.push({ from, to,   amount: net });
+    else if (net < -0.01) result.push({ from: to, to: from, amount: -net });
   }
   return result;
 }
