@@ -275,11 +275,12 @@ const auth = firebase.auth();
 const db   = firebase.firestore();
 
 // ─── State ───────────────────────────────────────────────────────────────────
-let currentUser     = null;
-let currentUserData = null;
-let allUsers        = [];
-let summaryMonth    = monthStr(new Date());
-let expenseUnsub    = null;
+let currentUser      = null;
+let currentUserData  = null;
+let allUsers         = [];
+let summaryMonth     = monthStr(new Date());
+let expenseUnsub     = null;
+let _setupInProgress = false;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function monthStr(d) {
@@ -328,21 +329,51 @@ async function doSetup() {
   const pw    = document.getElementById('setup-pw').value;
   if (!name || !email || !pw) return showErr('setup-err', 'All fields are required.');
   if (pw.length < 6)          return showErr('setup-err', 'Password must be at least 6 characters.');
+
+  _setupInProgress = true;
+  let cred = null;
   try {
+    // Create auth account first so Firestore reads are authenticated
+    cred = await auth.createUserWithEmailAndPassword(email, pw);
+
     const snap = await db.collection('users').limit(1).get();
-    if (!snap.empty) return showErr('setup-err', 'Setup already done. Ask admin to add you.');
-    const cred = await auth.createUserWithEmailAndPassword(email, pw);
+    if (!snap.empty) {
+      await cred.user.delete();
+      _setupInProgress = false;
+      return showErr('setup-err', 'Setup already done. Ask admin to add you.');
+    }
+
     await db.collection('users').doc(cred.user.uid).set({
       uid: cred.user.uid, name, email, role: 'admin',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-  } catch(e) { showErr('setup-err', e.message); }
+
+    // Fetch back so createdAt is the real server timestamp
+    const doc = await db.collection('users').doc(cred.user.uid).get();
+    currentUser     = cred.user;
+    currentUserData = doc.data();
+    _setupInProgress = false;
+
+    document.getElementById('hdr-name').textContent     = name;
+    document.getElementById('view-login').style.display  = 'none';
+    document.getElementById('view-setup').style.display  = 'none';
+    document.getElementById('app').style.display         = 'flex';
+    document.getElementById('nav-admin').style.display   = 'flex';
+    await loadUsers();
+    populateForm();
+    subscribeExpenses();
+  } catch(e) {
+    _setupInProgress = false;
+    if (cred) { try { await cred.user.delete(); } catch(_) {} }
+    showErr('setup-err', e.message);
+  }
 }
 
 async function doLogout() { await auth.signOut(); }
 
 // ─── Auth state ───────────────────────────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
+  if (_setupInProgress) return; // doSetup() handles its own app bootstrap
   if (user) {
     currentUser = user;
     const doc = await db.collection('users').doc(user.uid).get();
