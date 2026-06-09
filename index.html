@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Room Manager</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:      #f3f4f6;
+      --surface: #ffffff;
+      --border:  #e5e7eb;
+      --primary: #2563eb;
+      --danger:  #dc2626;
+      --success: #16a34a;
+      --text:    #111827;
+      --muted:   #6b7280;
+      --radius:  8px;
+    }
+    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+    a { color: var(--primary); }
+
+    /* ── Auth screens ─────────────────────────────────────────── */
+    .auth-wrap  { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+    .auth-card  { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 36px; width: 100%; max-width: 380px; }
+    .auth-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+    .auth-sub   { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
+
+    /* ── Form ─────────────────────────────────────────────────── */
+    .field         { margin-bottom: 14px; }
+    .field label   { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+    .field input,
+    .field select  { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; color: var(--text); background: var(--surface); }
+    .field input:focus,
+    .field select:focus { outline: 2px solid var(--primary); border-color: transparent; }
+
+    /* ── Buttons ─────────────────────────────────────────────── */
+    .btn         { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 18px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
+    .btn:hover   { opacity: .82; }
+    .btn-block   { width: 100%; }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-danger  { background: var(--danger);  color: #fff; }
+    .btn-ghost   { background: transparent; border: 1px solid var(--border); color: var(--text); }
+    .btn-sm      { padding: 4px 11px; font-size: 12px; }
+
+    /* ── Alerts ───────────────────────────────────────────────── */
+    .alert         { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 14px; }
+    .alert-error   { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .alert-success { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+
+    /* ── App shell ────────────────────────────────────────────── */
+    #app          { display: none; flex-direction: column; min-height: 100vh; }
+    .app-header   { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 16px; height: 54px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+    .app-logo     { font-size: 16px; font-weight: 700; }
+    .app-user     { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 10px; }
+
+    /* ── Bottom nav ───────────────────────────────────────────── */
+    .bottom-nav  { background: var(--surface); border-top: 1px solid var(--border); display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; }
+    .nav-btn     { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 8px 4px 6px; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer; border: none; background: none; gap: 3px; transition: color .15s; }
+    .nav-btn svg { width: 20px; height: 20px; }
+    .nav-btn.active { color: var(--primary); }
+
+    /* ── Main ─────────────────────────────────────────────────── */
+    .main { flex: 1; padding: 16px 16px 88px; max-width: 640px; margin: 0 auto; width: 100%; }
+
+    /* ── Views ────────────────────────────────────────────────── */
+    .view        { display: none; }
+    .view.active { display: block; }
+
+    /* ── Cards ────────────────────────────────────────────────── */
+    .card       { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 14px; }
+    .card-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+
+    /* ── Section header ───────────────────────────────────────── */
+    .sec-hdr    { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .sec-hdr h2 { font-size: 17px; font-weight: 700; }
+
+    /* ── Expense list ─────────────────────────────────────────── */
+    .exp-item     { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 8px; }
+    .exp-item:last-child { border-bottom: none; }
+    .exp-desc     { font-size: 14px; font-weight: 600; }
+    .exp-meta     { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .exp-right    { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
+    .exp-amount   { font-size: 15px; font-weight: 700; color: var(--primary); }
+
+    /* ── Total row ────────────────────────────────────────────── */
+    .total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 15px; padding-top: 12px; margin-top: 4px; border-top: 2px solid var(--border); }
+
+    /* ── Month nav ────────────────────────────────────────────── */
+    .month-nav      { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+    .month-nav span { font-size: 17px; font-weight: 700; }
+    .month-nav-btn  { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 13px; font-weight: 600; }
+    .month-nav-btn:hover { background: var(--bg); }
+
+    /* ── Summary rows ─────────────────────────────────────────── */
+    .sum-row       { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+    .sum-row:last-child { border-bottom: none; }
+    .sum-name      { font-weight: 600; }
+    .sum-nums      { text-align: right; font-size: 13px; color: var(--muted); }
+    .sum-nums strong { color: var(--text); font-size: 14px; }
+
+    .owe-item    { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; margin-bottom: 8px; font-size: 14px; }
+    .owe-amount  { font-weight: 700; color: #92400e; white-space: nowrap; }
+
+    /* ── User list ────────────────────────────────────────────── */
+    .user-item  { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .user-item:last-child { border-bottom: none; }
+    .user-name  { font-size: 14px; font-weight: 600; }
+    .user-email { font-size: 12px; color: var(--muted); }
+    .badge      { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; letter-spacing: .04em; text-transform: uppercase; }
+    .badge-admin { background: #dbeafe; color: #1d4ed8; }
+    .badge-user  { background: #f3f4f6; color: var(--muted); }
+
+    /* ── Checkboxes ───────────────────────────────────────────── */
+    .cb-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+    .cb-item  { display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
+
+    /* ── Empty state ──────────────────────────────────────────── */
+    .empty { text-align: center; padding: 36px 20px; color: var(--muted); font-size: 14px; }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════  LOGIN  ═══════════════════════════════════ -->
+<div id="view-login" class="auth-wrap">
+  <div class="auth-card">
+    <div class="auth-title">🏠 Room Manager</div>
+    <div class="auth-sub">Sign in to track shared expenses</div>
+    <div id="login-err" class="alert alert-error" style="display:none"></div>
+    <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com"/></div>
+    <div class="field"><label>Password</label><input type="password" id="login-pw" placeholder="••••••••"/></div>
+    <button class="btn btn-primary btn-block" onclick="doLogin()">Sign In</button>
+    <p style="margin-top:16px;font-size:12px;color:var(--muted);text-align:center">
+      First time? <a href="#" onclick="showSetup();return false">Create admin account</a>
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════  SETUP  ═══════════════════════════════════ -->
+<div id="view-setup" class="auth-wrap" style="display:none">
+  <div class="auth-card">
+    <div class="auth-title">First Time Setup</div>
+    <div class="auth-sub">Create the admin account — only needed once</div>
+    <div id="setup-err" class="alert alert-error" style="display:none"></div>
+    <div class="field"><label>Your Name</label><input type="text" id="setup-name" placeholder="John"/></div>
+    <div class="field"><label>Email</label><input type="email" id="setup-email" placeholder="you@example.com"/></div>
+    <div class="field"><label>Password</label><input type="password" id="setup-pw" placeholder="Min. 6 characters"/></div>
+    <button class="btn btn-primary btn-block" onclick="doSetup()">Create Admin Account</button>
+    <p style="margin-top:16px;font-size:12px;color:var(--muted);text-align:center">
+      <a href="#" onclick="showLogin();return false">Back to sign in</a>
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════  APP  ════════════════════════════════════ -->
+<div id="app">
+  <header class="app-header">
+    <span class="app-logo">🏠 Room Manager</span>
+    <span class="app-user">
+      <span id="hdr-name"></span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign out</button>
+    </span>
+  </header>
+
+  <main class="main">
+
+    <!-- ─── DASHBOARD ──────────────────────────────────────────── -->
+    <div id="view-dashboard" class="view active">
+
+      <div class="card">
+        <div class="card-title">Add Expense</div>
+        <div id="exp-err" class="alert alert-error" style="display:none"></div>
+        <div class="field"><label>Description</label><input type="text" id="exp-desc" placeholder="e.g. Grocery run"/></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="field"><label>Amount (£)</label><input type="number" id="exp-amount" placeholder="0.00" step="0.01" min="0"/></div>
+          <div class="field"><label>Date</label><input type="date" id="exp-date"/></div>
+        </div>
+        <div class="field"><label>Paid by</label><select id="exp-paidby"></select></div>
+        <div class="field">
+          <label>Split among <a href="#" onclick="toggleAllSplit();return false" style="font-weight:400;font-size:11px;margin-left:6px">toggle all</a></label>
+          <div class="cb-group" id="exp-split"></div>
+        </div>
+        <button class="btn btn-primary btn-block" style="margin-top:6px" onclick="addExpense()">Add Expense</button>
+      </div>
+
+      <div class="card">
+        <div class="sec-hdr">
+          <h2 id="dash-month"></h2>
+        </div>
+        <div id="exp-list"><div class="empty">No expenses yet</div></div>
+        <div id="dash-total" style="display:none" class="total-row">
+          <span>Total</span><span id="dash-total-val"></span>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ─── SUMMARY ────────────────────────────────────────────── -->
+    <div id="view-summary" class="view">
+      <div class="month-nav">
+        <button class="month-nav-btn" onclick="changeMonth(-1)">← Prev</button>
+        <span id="sum-month"></span>
+        <button class="month-nav-btn" onclick="changeMonth(1)">Next →</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">What each person paid</div>
+        <div id="sum-paid"><div class="empty">No data</div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Who needs to pay who</div>
+        <div id="sum-settle"><div class="empty">No data</div></div>
+      </div>
+    </div>
+
+    <!-- ─── ADMIN ───────────────────────────────────────────────── -->
+    <div id="view-admin" class="view">
+
+      <div class="card">
+        <div class="card-title">Add Roommate</div>
+        <div id="admin-err" class="alert alert-error" style="display:none"></div>
+        <div id="admin-ok"  class="alert alert-success" style="display:none"></div>
+        <div class="field"><label>Name</label><input type="text" id="new-name" placeholder="Jane"/></div>
+        <div class="field"><label>Email</label><input type="email" id="new-email" placeholder="jane@example.com"/></div>
+        <div class="field"><label>Password</label><input type="password" id="new-pw" placeholder="Min. 6 characters"/></div>
+        <button class="btn btn-primary btn-block" onclick="addUser()">Add Roommate</button>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Roommates</div>
+        <div id="user-list"><div class="empty">Loading…</div></div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Bottom nav -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" id="nav-dashboard" onclick="showView('dashboard')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
+      Dashboard
+    </button>
+    <button class="nav-btn" id="nav-summary" onclick="showView('summary')">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+      Summary
+    </button>
+    <button class="nav-btn" id="nav-admin" onclick="showView('admin')" style="display:none">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+      Admin
+    </button>
+  </nav>
+</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// FIREBASE CONFIG
+// Replace these values with your Firebase project config.
+// Get it from: Firebase Console → Project Settings → Your Apps → Web app → SDK setup
+// Also add your GitHub Pages domain to: Firebase Console → Authentication → Settings → Authorized domains
+// ─────────────────────────────────────────────────────────────────────────────
+const firebaseConfig = {
+  apiKey:            "YOUR_API_KEY",
+  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId:         "YOUR_PROJECT_ID",
+  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId:             "YOUR_APP_ID"
+};
+
+// ─── Init ────────────────────────────────────────────────────────────────────
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db   = firebase.firestore();
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let currentUser     = null;
+let currentUserData = null;
+let allUsers        = [];
+let summaryMonth    = monthStr(new Date());
+let expenseUnsub    = null;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function monthStr(d) {
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+}
+function monthLabel(s) {
+  const [y, m] = s.split('-');
+  return new Date(+y, +m - 1, 1).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+}
+function fmt(n) { return '£' + (+n).toFixed(2); }
+function userName(uid) { return (allUsers.find(u => u.uid === uid) || {}).name || 'Unknown'; }
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = msg;
+  el.style.display = msg ? 'block' : 'none';
+}
+
+// ─── Auth screens ─────────────────────────────────────────────────────────────
+function showLogin() {
+  document.getElementById('view-login').style.display = 'flex';
+  document.getElementById('view-setup').style.display = 'none';
+}
+function showSetup() {
+  document.getElementById('view-login').style.display = 'none';
+  document.getElementById('view-setup').style.display = 'flex';
+}
+
+// ─── Login ────────────────────────────────────────────────────────────────────
+async function doLogin() {
+  showErr('login-err', '');
+  const email = document.getElementById('login-email').value.trim();
+  const pw    = document.getElementById('login-pw').value;
+  if (!email || !pw) return showErr('login-err', 'Enter email and password.');
+  try {
+    await auth.signInWithEmailAndPassword(email, pw);
+  } catch(_) {
+    showErr('login-err', 'Invalid email or password.');
+  }
+}
+
+// ─── First-time admin setup ───────────────────────────────────────────────────
+async function doSetup() {
+  showErr('setup-err', '');
+  const name  = document.getElementById('setup-name').value.trim();
+  const email = document.getElementById('setup-email').value.trim();
+  const pw    = document.getElementById('setup-pw').value;
+  if (!name || !email || !pw) return showErr('setup-err', 'All fields are required.');
+  if (pw.length < 6)          return showErr('setup-err', 'Password must be at least 6 characters.');
+  try {
+    const snap = await db.collection('users').limit(1).get();
+    if (!snap.empty) return showErr('setup-err', 'Setup already done. Ask admin to add you.');
+    const cred = await auth.createUserWithEmailAndPassword(email, pw);
+    await db.collection('users').doc(cred.user.uid).set({
+      uid: cred.user.uid, name, email, role: 'admin',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch(e) { showErr('setup-err', e.message); }
+}
+
+async function doLogout() { await auth.signOut(); }
+
+// ─── Auth state ───────────────────────────────────────────────────────────────
+auth.onAuthStateChanged(async user => {
+  if (user) {
+    currentUser = user;
+    const doc = await db.collection('users').doc(user.uid).get();
+    if (!doc.exists) { await auth.signOut(); return; }
+    currentUserData = doc.data();
+    document.getElementById('hdr-name').textContent    = currentUserData.name;
+    document.getElementById('view-login').style.display = 'none';
+    document.getElementById('view-setup').style.display = 'none';
+    document.getElementById('app').style.display        = 'flex';
+    if (currentUserData.role === 'admin') {
+      document.getElementById('nav-admin').style.display = 'flex';
+    }
+    await loadUsers();
+    populateForm();
+    subscribeExpenses();
+  } else {
+    currentUser     = null;
+    currentUserData = null;
+    if (expenseUnsub) { expenseUnsub(); expenseUnsub = null; }
+    document.getElementById('app').style.display        = 'none';
+    document.getElementById('view-login').style.display = 'flex';
+  }
+});
+
+// ─── Navigation ───────────────────────────────────────────────────────────────
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  document.getElementById('nav-'  + name).classList.add('active');
+  if (name === 'summary') renderSummary();
+  if (name === 'admin')   renderUserList();
+}
+
+// ─── Users ────────────────────────────────────────────────────────────────────
+async function loadUsers() {
+  const snap = await db.collection('users').orderBy('createdAt').get();
+  allUsers = snap.docs.map(d => d.data());
+}
+
+function renderUserList() {
+  const el = document.getElementById('user-list');
+  if (!allUsers.length) { el.innerHTML = '<div class="empty">No users yet</div>'; return; }
+  el.innerHTML = allUsers.map(u => `
+    <div class="user-item">
+      <div>
+        <div class="user-name">${u.name}</div>
+        <div class="user-email">${u.email}</div>
+      </div>
+      <span class="badge badge-${u.role}">${u.role}</span>
+    </div>
+  `).join('');
+}
+
+async function addUser() {
+  showErr('admin-err', '');
+  showErr('admin-ok',  '');
+  const name  = document.getElementById('new-name').value.trim();
+  const email = document.getElementById('new-email').value.trim();
+  const pw    = document.getElementById('new-pw').value;
+  if (!name || !email || !pw) return showErr('admin-err', 'All fields are required.');
+  if (pw.length < 6)          return showErr('admin-err', 'Password must be at least 6 characters.');
+  try {
+    // Secondary app instance avoids logging out the current admin
+    const sec     = firebase.initializeApp(firebaseConfig, 'sec-' + Date.now());
+    const secAuth = sec.auth();
+    const cred    = await secAuth.createUserWithEmailAndPassword(email, pw);
+    await db.collection('users').doc(cred.user.uid).set({
+      uid: cred.user.uid, name, email, role: 'user',
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    await secAuth.signOut();
+    await sec.delete();
+    document.getElementById('new-name').value  = '';
+    document.getElementById('new-email').value = '';
+    document.getElementById('new-pw').value    = '';
+    await loadUsers();
+    renderUserList();
+    populateForm();
+    const ok = document.getElementById('admin-ok');
+    ok.textContent = name + ' added successfully.';
+    ok.style.display = 'block';
+    setTimeout(() => { ok.style.display = 'none'; }, 3000);
+  } catch(e) { showErr('admin-err', e.message); }
+}
+
+// ─── Expense form ─────────────────────────────────────────────────────────────
+function populateForm() {
+  const pb = document.getElementById('exp-paidby');
+  pb.innerHTML = allUsers.map(u =>
+    `<option value="${u.uid}"${u.uid === currentUser.uid ? ' selected' : ''}>${u.name}</option>`
+  ).join('');
+
+  document.getElementById('exp-split').innerHTML = allUsers.map(u => `
+    <label class="cb-item">
+      <input type="checkbox" value="${u.uid}" checked/>
+      ${u.name}
+    </label>
+  `).join('');
+
+  document.getElementById('exp-date').value = new Date().toISOString().split('T')[0];
+}
+
+function toggleAllSplit() {
+  const boxes = document.querySelectorAll('#exp-split input');
+  const anyUnchecked = Array.from(boxes).some(b => !b.checked);
+  boxes.forEach(b => { b.checked = anyUnchecked; });
+}
+
+// ─── Expenses ─────────────────────────────────────────────────────────────────
+function subscribeExpenses() {
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('dash-month').textContent = monthLabel(monthStr(new Date()));
+  if (expenseUnsub) expenseUnsub();
+  expenseUnsub = db.collection('expenses')
+    .where('month', '==', monthStr(new Date()))
+    .orderBy('date', 'desc')
+    .onSnapshot(snap => {
+      renderExpenseList(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+}
+
+async function addExpense() {
+  showErr('exp-err', '');
+  const desc   = document.getElementById('exp-desc').value.trim();
+  const amount = parseFloat(document.getElementById('exp-amount').value);
+  const paidBy = document.getElementById('exp-paidby').value;
+  const date   = document.getElementById('exp-date').value;
+  const split  = Array.from(document.querySelectorAll('#exp-split input:checked')).map(c => c.value);
+  if (!desc)              return showErr('exp-err', 'Enter a description.');
+  if (!amount || amount <= 0) return showErr('exp-err', 'Enter a valid amount.');
+  if (!split.length)      return showErr('exp-err', 'Select at least one person to split with.');
+  try {
+    await db.collection('expenses').add({
+      description: desc, amount, paidBy, splitAmong: split,
+      date, month: date.slice(0, 7), createdBy: currentUser.uid,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    document.getElementById('exp-desc').value   = '';
+    document.getElementById('exp-amount').value = '';
+  } catch(e) { showErr('exp-err', e.message); }
+}
+
+async function deleteExpense(id) {
+  if (!confirm('Delete this expense?')) return;
+  await db.collection('expenses').doc(id).delete();
+}
+
+function renderExpenseList(expenses) {
+  const el = document.getElementById('exp-list');
+  if (!expenses.length) {
+    el.innerHTML = '<div class="empty">No expenses this month</div>';
+    document.getElementById('dash-total').style.display = 'none';
+    return;
+  }
+  let total = 0;
+  el.innerHTML = expenses.map(e => {
+    total += e.amount;
+    const canDel = currentUserData.role === 'admin' || e.paidBy === currentUser.uid;
+    const splitNames = (e.splitAmong || []).map(uid => userName(uid)).join(', ');
+    return `
+      <div class="exp-item">
+        <div>
+          <div class="exp-desc">${e.description}</div>
+          <div class="exp-meta">Paid by ${userName(e.paidBy)} · ${e.date}</div>
+          <div class="exp-meta">Split: ${splitNames}</div>
+        </div>
+        <div class="exp-right">
+          <div class="exp-amount">${fmt(e.amount)}</div>
+          ${canDel ? `<button class="btn btn-danger btn-sm" onclick="deleteExpense('${e.id}')">Delete</button>` : ''}
+        </div>
+      </div>`;
+  }).join('');
+  document.getElementById('dash-total').style.display = 'flex';
+  document.getElementById('dash-total-val').textContent = fmt(total);
+}
+
+// ─── Summary ──────────────────────────────────────────────────────────────────
+function changeMonth(dir) {
+  const [y, m] = summaryMonth.split('-').map(Number);
+  summaryMonth = monthStr(new Date(y, m - 1 + dir, 1));
+  renderSummary();
+}
+
+async function renderSummary() {
+  document.getElementById('sum-month').textContent = monthLabel(summaryMonth);
+  const snap = await db.collection('expenses').where('month', '==', summaryMonth).get();
+  const expenses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  if (!expenses.length) {
+    document.getElementById('sum-paid').innerHTML   = '<div class="empty">No expenses this month</div>';
+    document.getElementById('sum-settle').innerHTML = '<div class="empty">Nothing to settle</div>';
+    return;
+  }
+
+  const paid = {}, owed = {};
+  allUsers.forEach(u => { paid[u.uid] = 0; owed[u.uid] = 0; });
+  expenses.forEach(e => {
+    paid[e.paidBy] = (paid[e.paidBy] || 0) + e.amount;
+    const share = e.amount / e.splitAmong.length;
+    e.splitAmong.forEach(uid => { owed[uid] = (owed[uid] || 0) + share; });
+  });
+
+  const totalAll = expenses.reduce((s, e) => s + e.amount, 0);
+
+  document.getElementById('sum-paid').innerHTML =
+    allUsers.map(u => `
+      <div class="sum-row">
+        <span class="sum-name">${u.name}</span>
+        <div class="sum-nums">
+          Paid <strong>${fmt(paid[u.uid] || 0)}</strong> · Owes ${fmt(owed[u.uid] || 0)}
+        </div>
+      </div>
+    `).join('') +
+    `<div class="total-row"><span>Total</span><span>${fmt(totalAll)}</span></div>`;
+
+  const balance = {};
+  allUsers.forEach(u => { balance[u.uid] = (paid[u.uid] || 0) - (owed[u.uid] || 0); });
+  const settlements = calcSettlements(balance);
+
+  document.getElementById('sum-settle').innerHTML = settlements.length
+    ? settlements.map(s => `
+        <div class="owe-item">
+          <span><strong>${userName(s.from)}</strong> pays <strong>${userName(s.to)}</strong></span>
+          <span class="owe-amount">${fmt(s.amount)}</span>
+        </div>`).join('')
+    : '<div class="alert alert-success" style="margin:0">Everyone is settled up! 🎉</div>';
+}
+
+function calcSettlements(balance) {
+  const d = Object.entries(balance).filter(([,v]) => v < -0.01).map(([u,v]) => [u, -v]).sort((a,b) => b[1]-a[1]);
+  const c = Object.entries(balance).filter(([,v]) => v >  0.01).map(([u,v]) => [u,  v]).sort((a,b) => b[1]-a[1]);
+  const result = [];
+  let i = 0, j = 0;
+  while (i < d.length && j < c.length) {
+    const amt = Math.min(d[i][1], c[j][1]);
+    if (amt > 0.01) result.push({ from: d[i][0], to: c[j][0], amount: amt });
+    d[i][1] -= amt;
+    c[j][1] -= amt;
+    if (d[i][1] < 0.01) i++;
+    if (c[j][1] < 0.01) j++;
+  }
+  return result;
+}
+</script>
+</body>
+</html>
