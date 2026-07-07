@@ -4,144 +4,371 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Room Manager</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com"/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"/>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg:      #f3f4f6;
-      --surface: #ffffff;
-      --border:  #e5e7eb;
-      --primary: #2563eb;
-      --danger:  #dc2626;
-      --success: #16a34a;
-      --text:    #111827;
-      --muted:   #6b7280;
-      --radius:  8px;
+      --bg:           #f1f5f9;
+      --surface:      #ffffff;
+      --surface-2:    #f8fafc;
+      --border:       #e2e8f0;
+      --accent:       #6366f1;
+      --accent-dark:  #4f46e5;
+      --accent-soft:  #eef2ff;
+      --danger:       #ef4444;
+      --danger-soft:  #fef2f2;
+      --success:      #10b981;
+      --success-soft: #ecfdf5;
+      --warning:      #f59e0b;
+      --warning-soft: #fffbeb;
+      --text:         #0f172a;
+      --text-2:       #475569;
+      --text-3:       #94a3b8;
+      --radius:       14px;
+      --radius-sm:    8px;
+      --shadow-sm:    0 1px 3px rgba(0,0,0,.06), 0 1px 2px rgba(0,0,0,.04);
+      --shadow:       0 4px 12px rgba(0,0,0,.07), 0 1px 3px rgba(0,0,0,.04);
+      --shadow-lg:    0 12px 24px -4px rgba(0,0,0,.09), 0 4px 8px -2px rgba(0,0,0,.04);
     }
-    body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
-    a { color: var(--primary); }
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
 
-    /* ── Auth screens ─────────────────────────────────────────── */
-    .auth-wrap  { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
-    .auth-card  { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 36px; width: 100%; max-width: 380px; }
-    .auth-title { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
-    .auth-sub   { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
+    /* ── Auth ─────────────────────────────────────────────────────── */
+    .auth-wrap {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      background: linear-gradient(135deg, #667eea10 0%, #764ba210 100%);
+    }
+    .auth-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 36px 32px;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: var(--shadow-lg);
+    }
+    .auth-icon {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+      margin-bottom: 20px;
+      box-shadow: 0 8px 16px -4px rgba(99,102,241,.4);
+    }
+    .auth-title { font-size: 22px; font-weight: 800; margin-bottom: 4px; color: var(--text); }
+    .auth-sub   { font-size: 14px; color: var(--text-2); margin-bottom: 28px; }
 
-    /* ── Form ─────────────────────────────────────────────────── */
+    /* ── Form fields ─────────────────────────────────────────────── */
     .field         { margin-bottom: 14px; }
-    .field label   { display: block; font-size: 13px; font-weight: 600; margin-bottom: 5px; }
+    .field label   { display: block; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-2); margin-bottom: 6px; }
     .field input,
-    .field select  { width: 100%; padding: 9px 12px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; color: var(--text); background: var(--surface); }
+    .field select,
+    .field textarea {
+      width: 100%;
+      padding: 10px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-size: 14px;
+      font-family: inherit;
+      color: var(--text);
+      background: var(--surface);
+      transition: border-color .15s, box-shadow .15s;
+      outline: none;
+    }
     .field input:focus,
-    .field select:focus { outline: 2px solid var(--primary); border-color: transparent; }
+    .field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
+    .field input::placeholder { color: var(--text-3); }
 
-    /* ── Buttons ─────────────────────────────────────────────── */
-    .btn         { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 18px; border: none; border-radius: 6px; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s; }
-    .btn:hover   { opacity: .82; }
+    /* ── Buttons ─────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 10px 18px;
+      border: none; border-radius: var(--radius-sm);
+      font-size: 14px; font-weight: 600; font-family: inherit;
+      cursor: pointer;
+      transition: all .15s;
+      white-space: nowrap;
+    }
+    .btn:active { transform: scale(.98); }
     .btn-block   { width: 100%; }
-    .btn-primary { background: var(--primary); color: #fff; }
-    .btn-danger  { background: var(--danger);  color: #fff; }
-    .btn-ghost   { background: transparent; border: 1px solid var(--border); color: var(--text); }
-    .btn-sm      { padding: 4px 11px; font-size: 12px; }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+      color: #fff;
+      box-shadow: 0 4px 12px -2px rgba(99,102,241,.4);
+    }
+    .btn-primary:hover { box-shadow: 0 6px 16px -2px rgba(99,102,241,.5); transform: translateY(-1px); }
+    .btn-danger  { background: var(--danger); color: #fff; }
+    .btn-danger:hover { background: #dc2626; }
+    .btn-ghost   { background: var(--surface-2); border: 1.5px solid var(--border); color: var(--text-2); font-weight: 600; }
+    .btn-ghost:hover { background: var(--border); color: var(--text); }
+    .btn-sm      { padding: 5px 12px; font-size: 12px; border-radius: 6px; }
 
-    /* ── Alerts ───────────────────────────────────────────────── */
-    .alert         { padding: 10px 14px; border-radius: 6px; font-size: 13px; margin-bottom: 14px; }
-    .alert-error   { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-    .alert-success { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    /* ── Alerts ───────────────────────────────────────────────────── */
+    .alert         { padding: 10px 14px; border-radius: var(--radius-sm); font-size: 13px; margin-bottom: 14px; display: flex; align-items: flex-start; gap: 8px; }
+    .alert-error   { background: var(--danger-soft);  color: #b91c1c; border: 1px solid #fca5a5; }
+    .alert-success { background: var(--success-soft); color: #065f46; border: 1px solid #6ee7b7; }
 
-    /* ── App shell ────────────────────────────────────────────── */
-    #app          { display: none; flex-direction: column; min-height: 100vh; }
-    .app-header   { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 16px; height: 54px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
-    .app-logo     { font-size: 16px; font-weight: 700; }
-    .app-user     { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 10px; }
+    /* ── App shell ────────────────────────────────────────────────── */
+    #app       { display: none; flex-direction: column; min-height: 100vh; }
+    .app-header {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+      padding: 0 20px;
+      height: 60px;
+      display: flex; align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 20;
+      box-shadow: 0 4px 16px -2px rgba(99,102,241,.4);
+    }
+    .app-logo { font-size: 17px; font-weight: 800; color: #fff; display: flex; align-items: center; gap: 8px; }
+    .app-user { display: flex; align-items: center; gap: 10px; }
+    .hdr-name { font-size: 13px; font-weight: 600; color: rgba(255,255,255,.85); }
+    .hdr-signout {
+      padding: 5px 12px; border: 1.5px solid rgba(255,255,255,.35);
+      border-radius: 8px; font-size: 12px; font-weight: 600; color: rgba(255,255,255,.9);
+      background: rgba(255,255,255,.12); cursor: pointer; transition: all .15s; font-family: inherit;
+    }
+    .hdr-signout:hover { background: rgba(255,255,255,.22); }
 
-    /* ── Bottom nav ───────────────────────────────────────────── */
-    .bottom-nav  { background: var(--surface); border-top: 1px solid var(--border); display: flex; position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; }
-    .nav-btn     { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 8px 4px 6px; font-size: 11px; font-weight: 600; color: var(--muted); cursor: pointer; border: none; background: none; gap: 3px; transition: color .15s; }
+    /* ── Bottom nav ───────────────────────────────────────────────── */
+    .bottom-nav {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      display: flex;
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 20;
+      padding: 6px 8px 10px;
+      gap: 4px;
+    }
+    .nav-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center;
+      padding: 8px 4px; font-size: 11px; font-weight: 600; color: var(--text-3);
+      cursor: pointer; border: none; background: none; gap: 3px;
+      transition: color .15s; border-radius: 10px; font-family: inherit;
+    }
     .nav-btn svg { width: 20px; height: 20px; }
-    .nav-btn.active { color: var(--primary); }
+    .nav-btn.active {
+      color: var(--accent);
+      background: var(--accent-soft);
+    }
 
-    /* ── Main ─────────────────────────────────────────────────── */
-    .main { flex: 1; padding: 16px 16px 88px; max-width: 640px; margin: 0 auto; width: 100%; }
+    /* ── Main ─────────────────────────────────────────────────────── */
+    .main { flex: 1; padding: 16px 16px 90px; max-width: 640px; margin: 0 auto; width: 100%; }
 
-    /* ── Views ────────────────────────────────────────────────── */
+    /* ── Views ────────────────────────────────────────────────────── */
     .view        { display: none; }
     .view.active { display: block; }
 
-    /* ── Cards ────────────────────────────────────────────────── */
-    .card       { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; margin-bottom: 14px; }
-    .card-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; }
+    /* ── Cards ────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow-sm);
+    }
+    .card-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; color: var(--text); }
 
-    /* ── Section header ───────────────────────────────────────── */
-    .sec-hdr    { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
-    .sec-hdr h2 { font-size: 17px; font-weight: 700; }
+    /* ── Section header ───────────────────────────────────────────── */
+    .sec-hdr    { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .sec-hdr h2 { font-size: 17px; font-weight: 800; }
 
-    /* ── Expense list ─────────────────────────────────────────── */
-    .exp-item     { display: flex; justify-content: space-between; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); gap: 8px; }
-    .exp-item:last-child { border-bottom: none; }
-    .exp-desc     { font-size: 14px; font-weight: 600; }
-    .exp-meta     { font-size: 12px; color: var(--muted); margin-top: 2px; }
-    .exp-right    { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; flex-shrink: 0; }
-    .exp-amount   { font-size: 15px; font-weight: 700; color: var(--primary); }
+    /* ── Month nav ────────────────────────────────────────────────── */
+    .month-nav {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 16px;
+      box-shadow: var(--shadow-sm);
+    }
+    .month-nav span { font-size: 16px; font-weight: 700; color: var(--text); }
+    .month-nav-btn {
+      background: var(--surface-2); border: 1.5px solid var(--border); border-radius: 8px;
+      padding: 6px 14px; cursor: pointer; font-size: 13px; font-weight: 600;
+      color: var(--text-2); transition: all .15s; font-family: inherit;
+    }
+    .month-nav-btn:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); }
 
-    /* ── Total row ────────────────────────────────────────────── */
-    .total-row { display: flex; justify-content: space-between; font-weight: 700; font-size: 15px; padding-top: 12px; margin-top: 4px; border-top: 2px solid var(--border); }
+    /* ── Search & Filter bar ──────────────────────────────────────── */
+    .filter-bar   { margin-bottom: 14px; }
+    .search-wrap  { position: relative; margin-bottom: 10px; }
+    .search-icon  { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-3); pointer-events: none; }
+    .search-input {
+      width: 100%;
+      padding: 10px 13px 10px 38px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      font-size: 14px; font-family: inherit; color: var(--text);
+      background: var(--surface);
+      outline: none; transition: border-color .15s, box-shadow .15s;
+    }
+    .search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(99,102,241,.1); }
+    .search-input::placeholder { color: var(--text-3); }
+    .clear-search {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      background: var(--text-3); color: white; border: none; border-radius: 50%;
+      width: 18px; height: 18px; font-size: 11px; cursor: pointer;
+      display: none; align-items: center; justify-content: center; font-family: inherit;
+    }
+    .clear-search.visible { display: flex; }
 
-    /* ── Month nav ────────────────────────────────────────────── */
-    .month-nav      { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
-    .month-nav span { font-size: 17px; font-weight: 700; }
-    .month-nav-btn  { background: none; border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; cursor: pointer; font-size: 13px; font-weight: 600; }
-    .month-nav-btn:hover { background: var(--bg); }
+    .filter-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+    .filter-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-3); }
+    .chip {
+      padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600;
+      border: 1.5px solid var(--border); background: var(--surface); color: var(--text-2);
+      cursor: pointer; transition: all .15s; font-family: inherit;
+    }
+    .chip:hover    { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+    .chip.active   { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .chip-cat.active { background: var(--text); color: #fff; border-color: var(--text); }
 
-    /* ── Summary rows ─────────────────────────────────────────── */
-    .sum-row       { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
+    /* ── Expense items ────────────────────────────────────────────── */
+    .exp-item {
+      display: flex; align-items: flex-start; gap: 12px;
+      padding: 13px 0; border-bottom: 1px solid var(--border);
+      transition: background .1s;
+    }
+    .exp-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .exp-item:first-child { padding-top: 0; }
+    .exp-avatar {
+      width: 38px; height: 38px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800; flex-shrink: 0;
+    }
+    .exp-body   { flex: 1; min-width: 0; }
+    .exp-desc   { font-size: 14px; font-weight: 700; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .exp-meta   { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+    .exp-tags   { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+    .cat-tag    { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 6px; letter-spacing: .03em; }
+    .split-tag  { font-size: 10px; color: var(--text-3); padding: 2px 8px; background: var(--surface-2); border-radius: 6px; }
+    .exp-right  { text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+    .exp-amount { font-size: 16px; font-weight: 800; color: var(--accent); }
+    .exp-actions { display: flex; gap: 4px; }
+
+    /* ── Category colours ─────────────────────────────────────────── */
+    .cat-groceries  { background: #d1fae5; color: #065f46; }
+    .cat-dining     { background: #fed7aa; color: #92400e; }
+    .cat-bills      { background: #dbeafe; color: #1e40af; }
+    .cat-transport  { background: #fce7f3; color: #9d174d; }
+    .cat-shopping   { background: #ede9fe; color: #5b21b6; }
+    .cat-other      { background: #f3f4f6; color: #374151; }
+
+    /* ── Avatar palette ───────────────────────────────────────────── */
+    .av-0 { background: #dbeafe; color: #1e40af; }
+    .av-1 { background: #d1fae5; color: #065f46; }
+    .av-2 { background: #ede9fe; color: #5b21b6; }
+    .av-3 { background: #fce7f3; color: #9d174d; }
+    .av-4 { background: #fed7aa; color: #92400e; }
+    .av-5 { background: #dcfce7; color: #166534; }
+
+    /* ── Total row ────────────────────────────────────────────────── */
+    .total-row {
+      display: flex; justify-content: space-between; align-items: center;
+      font-weight: 700; font-size: 15px;
+      padding-top: 14px; margin-top: 6px;
+      border-top: 2px solid var(--border);
+    }
+    .total-val { font-size: 18px; font-weight: 800; color: var(--accent); }
+
+    /* ── Summary ──────────────────────────────────────────────────── */
+    .sum-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 0; border-bottom: 1px solid var(--border); gap: 10px;
+    }
     .sum-row:last-child { border-bottom: none; }
-    .sum-name      { font-weight: 600; }
-    .sum-nums      { text-align: right; font-size: 13px; color: var(--muted); }
-    .sum-nums strong { color: var(--text); font-size: 14px; }
+    .sum-left   { display: flex; align-items: center; gap: 10px; }
+    .sum-name   { font-size: 14px; font-weight: 700; }
+    .sum-sub    { font-size: 12px; color: var(--text-3); }
+    .sum-nums   { text-align: right; }
+    .sum-paid-amt  { font-size: 16px; font-weight: 800; color: var(--text); }
+    .sum-owe-amt   { font-size: 12px; color: var(--text-2); margin-top: 1px; }
 
-    .owe-item    { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px; background: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; margin-bottom: 8px; font-size: 14px; }
-    .owe-amount  { font-weight: 700; color: #92400e; white-space: nowrap; }
+    /* ── Settlement rows ─────────────────────────────────────────── */
+    .settle-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px;
+      background: var(--warning-soft);
+      border: 1.5px solid #fde68a;
+      border-radius: 12px;
+      margin-bottom: 8px;
+    }
+    .settle-item:last-child { margin-bottom: 0; }
+    .settle-names { flex: 1; font-size: 14px; font-weight: 600; }
+    .settle-arrow { color: var(--warning); font-size: 18px; }
+    .settle-amount { font-size: 16px; font-weight: 800; color: #92400e; white-space: nowrap; }
 
-    /* ── User list ────────────────────────────────────────────── */
-    .user-item  { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    /* ── User list ────────────────────────────────────────────────── */
+    .user-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 11px 0; border-bottom: 1px solid var(--border);
+    }
     .user-item:last-child { border-bottom: none; }
-    .user-name  { font-size: 14px; font-weight: 600; }
-    .user-email { font-size: 12px; color: var(--muted); }
-    .badge      { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 10px; letter-spacing: .04em; text-transform: uppercase; }
-    .badge-admin { background: #dbeafe; color: #1d4ed8; }
-    .badge-user  { background: #f3f4f6; color: var(--muted); }
+    .user-info { flex: 1; }
+    .user-name  { font-size: 14px; font-weight: 700; }
+    .user-email { font-size: 12px; color: var(--text-3); }
+    .badge { font-size: 10px; font-weight: 700; padding: 3px 9px; border-radius: 20px; letter-spacing: .04em; text-transform: uppercase; }
+    .badge-admin { background: var(--accent-soft); color: var(--accent-dark); }
+    .badge-user  { background: var(--surface-2); color: var(--text-2); }
 
-    /* ── Checkboxes ───────────────────────────────────────────── */
+    /* ── Checkbox group ─────────────────────────────────────────── */
     .cb-group { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
-    .cb-item  { display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; }
+    .cb-item  { display: flex; align-items: center; gap: 5px; font-size: 13px; cursor: pointer; color: var(--text-2); font-weight: 500; }
+    .cb-item input { accent-color: var(--accent); }
 
-    /* ── Empty state ──────────────────────────────────────────── */
-    .empty { text-align: center; padding: 36px 20px; color: var(--muted); font-size: 14px; }
+    /* ── Empty state ─────────────────────────────────────────────── */
+    .empty { text-align: center; padding: 36px 20px; color: var(--text-3); font-size: 14px; }
+    .empty-icon { font-size: 32px; margin-bottom: 8px; }
+    .empty-text { font-weight: 500; }
+
+    /* ── Result count ─────────────────────────────────────────────── */
+    .result-count { font-size: 12px; font-weight: 600; color: var(--text-3); margin-bottom: 6px; padding: 2px 0; }
+
+    /* ── Grid ────────────────────────────────────────────────────── */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+    /* ── Link ────────────────────────────────────────────────────── */
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════  LOGIN  ═══════════════════════════════════ -->
+<!-- ══════════════════════════  LOGIN  ══════════════════════════════ -->
 <div id="view-login" class="auth-wrap">
   <div class="auth-card">
-    <div class="auth-title">🏠 Room Manager</div>
+    <div class="auth-icon">🏠</div>
+    <div class="auth-title">Room Manager</div>
     <div class="auth-sub">Sign in to track shared expenses</div>
     <div id="login-err" class="alert alert-error" style="display:none"></div>
     <div class="field"><label>Email</label><input type="email" id="login-email" placeholder="you@example.com"/></div>
     <div class="field"><label>Password</label><input type="password" id="login-pw" placeholder="••••••••"/></div>
     <button class="btn btn-primary btn-block" onclick="doLogin()">Sign In</button>
-    <p style="margin-top:16px;font-size:12px;color:var(--muted);text-align:center">
+    <p style="margin-top:18px;font-size:13px;color:var(--text-3);text-align:center">
       First time? <a href="#" onclick="showSetup();return false">Create admin account</a>
     </p>
   </div>
 </div>
 
-<!-- ═══════════════════════════  SETUP  ═══════════════════════════════════ -->
+<!-- ══════════════════════════  SETUP  ══════════════════════════════ -->
 <div id="view-setup" class="auth-wrap" style="display:none">
   <div class="auth-card">
+    <div class="auth-icon">⚙️</div>
     <div class="auth-title">First Time Setup</div>
     <div class="auth-sub">Create the admin account — only needed once</div>
     <div id="setup-err" class="alert alert-error" style="display:none"></div>
@@ -149,59 +376,103 @@
     <div class="field"><label>Email</label><input type="email" id="setup-email" placeholder="you@example.com"/></div>
     <div class="field"><label>Password</label><input type="password" id="setup-pw" placeholder="Min. 6 characters"/></div>
     <button class="btn btn-primary btn-block" onclick="doSetup()">Create Admin Account</button>
-    <p style="margin-top:16px;font-size:12px;color:var(--muted);text-align:center">
-      <a href="#" onclick="showLogin();return false">Back to sign in</a>
+    <p style="margin-top:18px;font-size:13px;color:var(--text-3);text-align:center">
+      <a href="#" onclick="showLogin();return false">← Back to sign in</a>
     </p>
   </div>
 </div>
 
-<!-- ═══════════════════════════  APP  ════════════════════════════════════ -->
+<!-- ══════════════════════════  APP  ═════════════════════════════════ -->
 <div id="app">
   <header class="app-header">
     <span class="app-logo">🏠 Room Manager</span>
     <span class="app-user">
-      <span id="hdr-name"></span>
-      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Sign out</button>
+      <span class="hdr-name" id="hdr-name"></span>
+      <button class="hdr-signout" onclick="doLogout()">Sign out</button>
     </span>
   </header>
 
   <main class="main">
 
-    <!-- ─── DASHBOARD ──────────────────────────────────────────── -->
+    <!-- ─── DASHBOARD ─────────────────────────────────────────────── -->
     <div id="view-dashboard" class="view active">
 
+      <!-- Month nav -->
+      <div class="month-nav">
+        <button class="month-nav-btn" onclick="changeDashMonth(-1)">← Prev</button>
+        <span id="dash-month-label"></span>
+        <button class="month-nav-btn" onclick="changeDashMonth(1)">Next →</button>
+      </div>
+
+      <!-- Add Expense card -->
       <div class="card">
-        <div class="card-title">Add Expense</div>
+        <div class="card-title" id="form-title">Add Expense</div>
         <div id="exp-err" class="alert alert-error" style="display:none"></div>
         <div class="field"><label>Description</label><input type="text" id="exp-desc" placeholder="e.g. Grocery run"/></div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="grid-2">
           <div class="field"><label>Amount (£)</label><input type="number" id="exp-amount" placeholder="0.00" step="0.01" min="0"/></div>
           <div class="field"><label>Date</label><input type="date" id="exp-date"/></div>
         </div>
-        <div class="field"><label>Paid by</label><select id="exp-paidby"></select></div>
+        <div class="grid-2">
+          <div class="field">
+            <label>Category</label>
+            <select id="exp-category">
+              <option value="other">📦 Other</option>
+              <option value="groceries">🛒 Groceries</option>
+              <option value="dining">🍽 Dining</option>
+              <option value="bills">🏠 Bills &amp; Utilities</option>
+              <option value="transport">🚌 Transport</option>
+              <option value="shopping">🛍 Shopping</option>
+            </select>
+          </div>
+          <div class="field"><label>Paid by</label><select id="exp-paidby"></select></div>
+        </div>
         <div class="field">
-          <label>Split among <a href="#" onclick="toggleAllSplit();return false" style="font-weight:400;font-size:11px;margin-left:6px">toggle all</a></label>
+          <label>Split among <a href="#" onclick="toggleAllSplit();return false" style="font-weight:500;font-size:11px;margin-left:6px;text-transform:none;letter-spacing:0">toggle all</a></label>
           <div class="cb-group" id="exp-split"></div>
         </div>
-        <div style="display:flex;align-items:center;gap:12px;margin-top:6px">
+        <div style="display:flex;align-items:center;gap:12px;margin-top:8px">
           <button id="exp-submit-btn" class="btn btn-primary btn-block" onclick="addExpense()">Add Expense</button>
-          <a href="#" id="exp-cancel-edit" onclick="cancelEdit();return false" style="display:none;white-space:nowrap;font-size:13px;color:var(--muted)">Cancel</a>
+          <a href="#" id="exp-cancel-edit" onclick="cancelEdit();return false" style="display:none;white-space:nowrap;font-size:13px;color:var(--text-3)">Cancel</a>
         </div>
       </div>
 
-      <div class="card">
-        <div class="sec-hdr">
-          <h2 id="dash-month"></h2>
+      <!-- Search + Filter -->
+      <div class="filter-bar">
+        <div class="search-wrap">
+          <svg class="search-icon" width="16" height="16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          <input type="text" class="search-input" id="search-input" placeholder="Search expenses…" oninput="onSearchInput(this.value)"/>
+          <button class="clear-search" id="clear-search" onclick="clearSearch()">✕</button>
         </div>
-        <div id="exp-list"><div class="empty">No expenses yet</div></div>
+        <div class="filter-chips" id="payer-chips">
+          <span class="filter-label">Payer:</span>
+          <button class="chip active" data-uid="all" onclick="setPayerFilter('all')">All</button>
+        </div>
+        <div class="filter-chips" style="margin-top:8px" id="cat-chips">
+          <span class="filter-label">Category:</span>
+          <button class="chip chip-cat active" data-cat="all" onclick="setCatFilter('all')">All</button>
+          <button class="chip chip-cat" data-cat="groceries" onclick="setCatFilter('groceries')">🛒 Groceries</button>
+          <button class="chip chip-cat" data-cat="dining" onclick="setCatFilter('dining')">🍽 Dining</button>
+          <button class="chip chip-cat" data-cat="bills" onclick="setCatFilter('bills')">🏠 Bills</button>
+          <button class="chip chip-cat" data-cat="transport" onclick="setCatFilter('transport')">🚌 Transport</button>
+          <button class="chip chip-cat" data-cat="shopping" onclick="setCatFilter('shopping')">🛍 Shopping</button>
+          <button class="chip chip-cat" data-cat="other" onclick="setCatFilter('other')">📦 Other</button>
+        </div>
+      </div>
+
+      <!-- Expense list -->
+      <div class="card" style="padding:16px 20px">
+        <div id="result-count" class="result-count" style="display:none"></div>
+        <div id="exp-list"><div class="empty"><div class="empty-icon">📋</div><div class="empty-text">No expenses yet</div></div></div>
         <div id="dash-total" style="display:none" class="total-row">
-          <span>Total</span><span id="dash-total-val"></span>
+          <span style="color:var(--text-2)">Total</span>
+          <span class="total-val" id="dash-total-val"></span>
         </div>
       </div>
 
     </div>
 
-    <!-- ─── SUMMARY ────────────────────────────────────────────── -->
+    <!-- ─── SUMMARY ─────────────────────────────────────────────── -->
     <div id="view-summary" class="view">
       <div class="month-nav">
         <button class="month-nav-btn" onclick="changeMonth(-1)">← Prev</button>
@@ -210,21 +481,20 @@
       </div>
 
       <div class="card">
-        <div class="card-title">What each person paid</div>
-        <div id="sum-paid"><div class="empty">No data</div></div>
+        <div class="card-title">💳 What each person paid</div>
+        <div id="sum-paid"><div class="empty"><div class="empty-icon">📊</div><div class="empty-text">No data</div></div></div>
       </div>
 
       <div class="card">
-        <div class="card-title">Who needs to pay who</div>
-        <div id="sum-settle"><div class="empty">No data</div></div>
+        <div class="card-title">⚖️ Who needs to pay who</div>
+        <div id="sum-settle"><div class="empty"><div class="empty-icon">🤝</div><div class="empty-text">Nothing to settle</div></div></div>
       </div>
     </div>
 
-    <!-- ─── ADMIN ───────────────────────────────────────────────── -->
+    <!-- ─── ADMIN ────────────────────────────────────────────────── -->
     <div id="view-admin" class="view">
-
       <div class="card">
-        <div class="card-title">Add Roommate</div>
+        <div class="card-title">➕ Add Roommate</div>
         <div id="admin-err" class="alert alert-error" style="display:none"></div>
         <div id="admin-ok"  class="alert alert-success" style="display:none"></div>
         <div class="field"><label>Name</label><input type="text" id="new-name" placeholder="Jane"/></div>
@@ -234,19 +504,17 @@
       </div>
 
       <div class="card">
-        <div class="card-title">Roommates</div>
-        <div id="user-list"><div class="empty">Loading…</div></div>
+        <div class="card-title">👥 Roommates</div>
+        <div id="user-list"><div class="empty"><div class="empty-text">Loading…</div></div></div>
       </div>
-
     </div>
 
   </main>
 
-  <!-- Bottom nav -->
   <nav class="bottom-nav">
     <button class="nav-btn active" id="nav-dashboard" onclick="showView('dashboard')">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>
-      Dashboard
+      Expenses
     </button>
     <button class="nav-btn" id="nav-summary" onclick="showView('summary')">
       <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
@@ -272,20 +540,23 @@ const firebaseConfig = {
   appId:             "1:587918016613:web:8ddb4d281ee5067b18468c"
 };
 
-// ─── Init ────────────────────────────────────────────────────────────────────
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
-// ─── State ───────────────────────────────────────────────────────────────────
+// ─── State ────────────────────────────────────────────────────────────────────
 let currentUser      = null;
 let currentUserData  = null;
 let allUsers         = [];
 let summaryMonth     = monthStr(new Date());
+let dashMonth        = monthStr(new Date());
 let expenseUnsub     = null;
 let _setupInProgress = false;
 let editingExpenseId = null;
 let currentExpenses  = [];
+let filterSearch     = '';
+let filterPaidBy     = 'all';
+let filterCategory   = 'all';
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function monthStr(d) {
@@ -303,7 +574,24 @@ function showErr(id, msg) {
   el.style.display = msg ? 'block' : 'none';
 }
 
-// ─── Auth screens ─────────────────────────────────────────────────────────────
+function avatarClass(uid) {
+  const idx = allUsers.findIndex(u => u.uid === uid);
+  return 'av-' + (idx < 0 ? 0 : idx % 6);
+}
+function initials(name) {
+  return name.split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+const CAT_LABEL = {
+  groceries: '🛒 Groceries', dining: '🍽 Dining', bills: '🏠 Bills',
+  transport: '🚌 Transport', shopping: '🛍 Shopping', other: '📦 Other',
+};
+const CAT_CLASS = {
+  groceries: 'cat-groceries', dining: 'cat-dining', bills: 'cat-bills',
+  transport: 'cat-transport', shopping: 'cat-shopping', other: 'cat-other',
+};
+
+// ─── Auth screens ──────────────────────────────────────────────────────────────
 function showLogin() {
   document.getElementById('view-login').style.display = 'flex';
   document.getElementById('view-setup').style.display = 'none';
@@ -313,7 +601,7 @@ function showSetup() {
   document.getElementById('view-setup').style.display = 'flex';
 }
 
-// ─── Login ────────────────────────────────────────────────────────────────────
+// ─── Login ─────────────────────────────────────────────────────────────────────
 async function doLogin() {
   showErr('login-err', '');
   const email = document.getElementById('login-email').value.trim();
@@ -326,7 +614,7 @@ async function doLogin() {
   }
 }
 
-// ─── First-time admin setup ───────────────────────────────────────────────────
+// ─── First-time admin setup ────────────────────────────────────────────────────
 async function doSetup() {
   showErr('setup-err', '');
   const name  = document.getElementById('setup-name').value.trim();
@@ -338,32 +626,27 @@ async function doSetup() {
   _setupInProgress = true;
   let cred = null;
   try {
-    // Create auth account first so Firestore reads are authenticated
     cred = await auth.createUserWithEmailAndPassword(email, pw);
-
     const snap = await db.collection('users').limit(1).get();
     if (!snap.empty) {
       await cred.user.delete();
       _setupInProgress = false;
       return showErr('setup-err', 'Setup already done. Ask admin to add you.');
     }
-
     await db.collection('users').doc(cred.user.uid).set({
       uid: cred.user.uid, name, email, role: 'admin',
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
-
-    // Fetch back so createdAt is the real server timestamp
     const doc = await db.collection('users').doc(cred.user.uid).get();
     currentUser     = cred.user;
     currentUserData = doc.data();
     _setupInProgress = false;
 
-    document.getElementById('hdr-name').textContent     = name;
-    document.getElementById('view-login').style.display  = 'none';
-    document.getElementById('view-setup').style.display  = 'none';
-    document.getElementById('app').style.display         = 'flex';
-    document.getElementById('nav-admin').style.display   = 'flex';
+    document.getElementById('hdr-name').textContent    = name;
+    document.getElementById('view-login').style.display = 'none';
+    document.getElementById('view-setup').style.display = 'none';
+    document.getElementById('app').style.display        = 'flex';
+    document.getElementById('nav-admin').style.display  = 'flex';
     await loadUsers();
     populateForm();
     subscribeExpenses();
@@ -376,9 +659,9 @@ async function doSetup() {
 
 async function doLogout() { await auth.signOut(); }
 
-// ─── Auth state ───────────────────────────────────────────────────────────────
+// ─── Auth state ────────────────────────────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
-  if (_setupInProgress) return; // doSetup() handles its own app bootstrap
+  if (_setupInProgress) return;
   if (user) {
     currentUser = user;
     const doc = await db.collection('users').doc(user.uid).get();
@@ -393,6 +676,7 @@ auth.onAuthStateChanged(async user => {
     }
     await loadUsers();
     populateForm();
+    buildPayerChips();
     subscribeExpenses();
   } else {
     currentUser     = null;
@@ -403,7 +687,7 @@ auth.onAuthStateChanged(async user => {
   }
 });
 
-// ─── Navigation ───────────────────────────────────────────────────────────────
+// ─── Navigation ────────────────────────────────────────────────────────────────
 function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -413,7 +697,14 @@ function showView(name) {
   if (name === 'admin')   renderUserList();
 }
 
-// ─── Users ────────────────────────────────────────────────────────────────────
+// ─── Dashboard month nav ────────────────────────────────────────────────────────
+function changeDashMonth(dir) {
+  const [y, m] = dashMonth.split('-').map(Number);
+  dashMonth = monthStr(new Date(y, m - 1 + dir, 1));
+  subscribeExpenses();
+}
+
+// ─── Users ─────────────────────────────────────────────────────────────────────
 async function loadUsers() {
   const snap = await db.collection('users').orderBy('createdAt').get();
   allUsers = snap.docs.map(d => d.data());
@@ -421,10 +712,11 @@ async function loadUsers() {
 
 function renderUserList() {
   const el = document.getElementById('user-list');
-  if (!allUsers.length) { el.innerHTML = '<div class="empty">No users yet</div>'; return; }
-  el.innerHTML = allUsers.map(u => `
+  if (!allUsers.length) { el.innerHTML = '<div class="empty"><div class="empty-text">No users yet</div></div>'; return; }
+  el.innerHTML = allUsers.map((u, i) => `
     <div class="user-item">
-      <div>
+      <div class="exp-avatar av-${i % 6}" style="width:36px;height:36px;border-radius:10px;font-size:13px;font-weight:800">${initials(u.name)}</div>
+      <div class="user-info">
         <div class="user-name">${u.name}</div>
         <div class="user-email">${u.email}</div>
       </div>
@@ -442,7 +734,6 @@ async function addUser() {
   if (!name || !email || !pw) return showErr('admin-err', 'All fields are required.');
   if (pw.length < 6)          return showErr('admin-err', 'Password must be at least 6 characters.');
   try {
-    // Secondary app instance avoids logging out the current admin
     const sec     = firebase.initializeApp(firebaseConfig, 'sec-' + Date.now());
     const secAuth = sec.auth();
     const cred    = await secAuth.createUserWithEmailAndPassword(email, pw);
@@ -458,27 +749,26 @@ async function addUser() {
     await loadUsers();
     renderUserList();
     populateForm();
+    buildPayerChips();
     const ok = document.getElementById('admin-ok');
-    ok.textContent = name + ' added successfully.';
-    ok.style.display = 'block';
+    ok.textContent = '✓ ' + name + ' added successfully.';
+    ok.style.display = 'flex';
     setTimeout(() => { ok.style.display = 'none'; }, 3000);
   } catch(e) { showErr('admin-err', e.message); }
 }
 
-// ─── Expense form ─────────────────────────────────────────────────────────────
+// ─── Expense form ──────────────────────────────────────────────────────────────
 function populateForm() {
   const pb = document.getElementById('exp-paidby');
   pb.innerHTML = allUsers.map(u =>
     `<option value="${u.uid}"${u.uid === currentUser.uid ? ' selected' : ''}>${u.name}</option>`
   ).join('');
-
   document.getElementById('exp-split').innerHTML = allUsers.map(u => `
     <label class="cb-item">
       <input type="checkbox" value="${u.uid}" checked/>
       ${u.name}
     </label>
   `).join('');
-
   document.getElementById('exp-date').value = new Date().toISOString().split('T')[0];
 }
 
@@ -488,6 +778,63 @@ function toggleAllSplit() {
   boxes.forEach(b => { b.checked = anyUnchecked; });
 }
 
+// ─── Payer filter chips ────────────────────────────────────────────────────────
+function buildPayerChips() {
+  const wrap = document.getElementById('payer-chips');
+  wrap.innerHTML = '<span class="filter-label">Payer:</span>' +
+    '<button class="chip active" data-uid="all" onclick="setPayerFilter(\'all\')">All</button>' +
+    allUsers.map(u =>
+      `<button class="chip" data-uid="${u.uid}" onclick="setPayerFilter('${u.uid}')">${u.name}</button>`
+    ).join('');
+}
+
+function setPayerFilter(uid) {
+  filterPaidBy = uid;
+  document.querySelectorAll('#payer-chips .chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.uid === uid);
+  });
+  applyFilters();
+}
+
+function setCatFilter(cat) {
+  filterCategory = cat;
+  document.querySelectorAll('#cat-chips .chip').forEach(c => {
+    c.classList.toggle('active', c.dataset.cat === cat);
+  });
+  applyFilters();
+}
+
+function onSearchInput(val) {
+  filterSearch = val.trim().toLowerCase();
+  document.getElementById('clear-search').classList.toggle('visible', !!val);
+  applyFilters();
+}
+
+function clearSearch() {
+  document.getElementById('search-input').value = '';
+  filterSearch = '';
+  document.getElementById('clear-search').classList.remove('visible');
+  applyFilters();
+}
+
+function applyFilters() {
+  let result = currentExpenses;
+  if (filterPaidBy !== 'all') {
+    result = result.filter(e => e.paidBy === filterPaidBy);
+  }
+  if (filterCategory !== 'all') {
+    result = result.filter(e => (e.category || 'other') === filterCategory);
+  }
+  if (filterSearch) {
+    result = result.filter(e =>
+      e.description.toLowerCase().includes(filterSearch) ||
+      userName(e.paidBy).toLowerCase().includes(filterSearch) ||
+      (e.splitAmong || []).some(uid => userName(uid).toLowerCase().includes(filterSearch))
+    );
+  }
+  renderExpenseListFiltered(result);
+}
+
 // ─── Expenses ─────────────────────────────────────────────────────────────────
 function monthDateRange(ms) {
   const [y, m] = ms.split('-');
@@ -495,40 +842,44 @@ function monthDateRange(ms) {
 }
 
 function subscribeExpenses() {
-  document.getElementById('dash-month').textContent = monthLabel(monthStr(new Date()));
+  document.getElementById('dash-month-label').textContent = monthLabel(dashMonth);
   if (expenseUnsub) expenseUnsub();
-  const { start, end } = monthDateRange(monthStr(new Date()));
+  const { start, end } = monthDateRange(dashMonth);
   expenseUnsub = db.collection('expenses')
     .where('date', '>=', start)
     .where('date', '<=', end)
     .orderBy('date', 'desc')
     .onSnapshot(
-      snap => { renderExpenseList(snap.docs.map(d => ({ id: d.id, ...d.data() }))); },
-      err  => { showErr('exp-err', err.message); }
+      snap => {
+        currentExpenses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        applyFilters();
+      },
+      err => { showErr('exp-err', err.message); }
     );
 }
 
 async function addExpense() {
   showErr('exp-err', '');
-  const desc   = document.getElementById('exp-desc').value.trim();
-  const amount = parseFloat(document.getElementById('exp-amount').value);
-  const paidBy = document.getElementById('exp-paidby').value;
-  const date   = document.getElementById('exp-date').value;
-  const split  = Array.from(document.querySelectorAll('#exp-split input:checked')).map(c => c.value);
-  if (!desc)              return showErr('exp-err', 'Enter a description.');
+  const desc     = document.getElementById('exp-desc').value.trim();
+  const amount   = parseFloat(document.getElementById('exp-amount').value);
+  const paidBy   = document.getElementById('exp-paidby').value;
+  const date     = document.getElementById('exp-date').value;
+  const category = document.getElementById('exp-category').value;
+  const split    = Array.from(document.querySelectorAll('#exp-split input:checked')).map(c => c.value);
+  if (!desc)               return showErr('exp-err', 'Enter a description.');
   if (!amount || amount <= 0) return showErr('exp-err', 'Enter a valid amount.');
-  if (!split.length)      return showErr('exp-err', 'Select at least one person to split with.');
+  if (!split.length)       return showErr('exp-err', 'Select at least one person to split with.');
   try {
     if (editingExpenseId) {
       await db.collection('expenses').doc(editingExpenseId).update({
-        description: desc, amount, paidBy, splitAmong: split,
+        description: desc, amount, paidBy, splitAmong: split, category,
         date, month: date.slice(0, 7),
         updatedAt: firebase.firestore.FieldValue.serverTimestamp()
       });
       cancelEdit();
     } else {
       await db.collection('expenses').add({
-        description: desc, amount, paidBy, splitAmong: split,
+        description: desc, amount, paidBy, splitAmong: split, category,
         date, month: date.slice(0, 7), createdBy: currentUser.uid,
         createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
@@ -542,26 +893,30 @@ function startEdit(id) {
   const e = currentExpenses.find(x => x.id === id);
   if (!e) return;
   editingExpenseId = id;
-  document.getElementById('exp-desc').value   = e.description;
-  document.getElementById('exp-amount').value = e.amount;
-  document.getElementById('exp-date').value   = e.date;
-  document.getElementById('exp-paidby').value = e.paidBy;
+  document.getElementById('exp-desc').value     = e.description;
+  document.getElementById('exp-amount').value   = e.amount;
+  document.getElementById('exp-date').value     = e.date;
+  document.getElementById('exp-paidby').value   = e.paidBy;
+  document.getElementById('exp-category').value = e.category || 'other';
   document.querySelectorAll('#exp-split input').forEach(cb => {
     cb.checked = (e.splitAmong || []).includes(cb.value);
   });
   document.getElementById('exp-submit-btn').textContent    = 'Update Expense';
+  document.getElementById('form-title').textContent        = 'Edit Expense';
   document.getElementById('exp-cancel-edit').style.display = 'inline';
   document.querySelector('#view-dashboard .card').scrollIntoView({ behavior: 'smooth' });
 }
 
 function cancelEdit() {
   editingExpenseId = null;
-  document.getElementById('exp-desc').value   = '';
-  document.getElementById('exp-amount').value = '';
-  document.getElementById('exp-date').value   = new Date().toISOString().split('T')[0];
-  document.getElementById('exp-paidby').value = currentUser.uid;
+  document.getElementById('exp-desc').value     = '';
+  document.getElementById('exp-amount').value   = '';
+  document.getElementById('exp-date').value     = new Date().toISOString().split('T')[0];
+  document.getElementById('exp-paidby').value   = currentUser.uid;
+  document.getElementById('exp-category').value = 'other';
   document.querySelectorAll('#exp-split input').forEach(cb => { cb.checked = true; });
   document.getElementById('exp-submit-btn').textContent    = 'Add Expense';
+  document.getElementById('form-title').textContent        = 'Add Expense';
   document.getElementById('exp-cancel-edit').style.display = 'none';
   showErr('exp-err', '');
 }
@@ -571,38 +926,63 @@ async function deleteExpense(id) {
   await db.collection('expenses').doc(id).delete();
 }
 
-function renderExpenseList(expenses) {
-  currentExpenses = expenses;
+function renderExpenseListFiltered(expenses) {
   const el = document.getElementById('exp-list');
+  const rc = document.getElementById('result-count');
+  const isFiltered = filterSearch || filterPaidBy !== 'all' || filterCategory !== 'all';
+
+  if (isFiltered) {
+    rc.textContent = expenses.length + ' result' + (expenses.length !== 1 ? 's' : '');
+    rc.style.display = 'block';
+  } else {
+    rc.style.display = 'none';
+  }
+
   if (!expenses.length) {
-    el.innerHTML = '<div class="empty">No expenses this month</div>';
+    el.innerHTML = isFiltered
+      ? '<div class="empty"><div class="empty-icon">🔍</div><div class="empty-text">No expenses match the filters</div></div>'
+      : '<div class="empty"><div class="empty-icon">📋</div><div class="empty-text">No expenses this month</div></div>';
     document.getElementById('dash-total').style.display = 'none';
     return;
   }
-  let total = 0;
+
+  const filtered_total = expenses.reduce((s, e) => s + e.amount, 0);
+
   el.innerHTML = expenses.map(e => {
-    total += e.amount;
     const canEdit = currentUserData.role === 'admin' || e.paidBy === currentUser.uid;
     const splitNames = (e.splitAmong || []).map(uid => userName(uid)).join(', ');
+    const cat = e.category || 'other';
+    const avClass = avatarClass(e.paidBy);
+    const payerName = userName(e.paidBy);
+    const payerInit = initials(payerName);
     return `
       <div class="exp-item">
-        <div>
-          <div class="exp-desc">${e.description}</div>
-          <div class="exp-meta">Paid by ${userName(e.paidBy)} · ${e.date}</div>
-          <div class="exp-meta">Split: ${splitNames}</div>
+        <div class="exp-avatar ${avClass}">${payerInit}</div>
+        <div class="exp-body">
+          <div class="exp-desc">${escHtml(e.description)}</div>
+          <div class="exp-meta">Paid by <strong>${payerName}</strong> · ${e.date}</div>
+          <div class="exp-tags">
+            <span class="cat-tag ${CAT_CLASS[cat] || 'cat-other'}">${CAT_LABEL[cat] || '📦 Other'}</span>
+            <span class="split-tag">Split: ${escHtml(splitNames)}</span>
+          </div>
         </div>
         <div class="exp-right">
           <div class="exp-amount">${fmt(e.amount)}</div>
           ${canEdit ? `
-            <div style="display:flex;gap:5px">
+            <div class="exp-actions">
               <button class="btn btn-ghost btn-sm" onclick="startEdit('${e.id}')">Edit</button>
               <button class="btn btn-danger btn-sm" onclick="deleteExpense('${e.id}')">Delete</button>
             </div>` : ''}
         </div>
       </div>`;
   }).join('');
+
   document.getElementById('dash-total').style.display = 'flex';
-  document.getElementById('dash-total-val').textContent = fmt(total);
+  document.getElementById('dash-total-val').textContent = fmt(filtered_total);
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
 
 // ─── Summary ──────────────────────────────────────────────────────────────────
@@ -622,8 +1002,8 @@ async function renderSummary() {
   const expenses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
 
   if (!expenses.length) {
-    document.getElementById('sum-paid').innerHTML   = '<div class="empty">No expenses this month</div>';
-    document.getElementById('sum-settle').innerHTML = '<div class="empty">Nothing to settle</div>';
+    document.getElementById('sum-paid').innerHTML   = '<div class="empty"><div class="empty-icon">📊</div><div class="empty-text">No expenses this month</div></div>';
+    document.getElementById('sum-settle').innerHTML = '<div class="empty"><div class="empty-icon">🤝</div><div class="empty-text">Nothing to settle</div></div>';
     return;
   }
 
@@ -642,27 +1022,44 @@ async function renderSummary() {
   });
 
   const totalAll = expenses.reduce((s, e) => s + e.amount, 0);
+  const maxPaid = Math.max(...allUsers.map(u => paid[u.uid] || 0), 1);
 
   document.getElementById('sum-paid').innerHTML =
-    allUsers.map(u => `
+    allUsers.map((u, i) => `
       <div class="sum-row">
-        <span class="sum-name">${u.name}</span>
+        <div class="sum-left">
+          <div class="exp-avatar av-${i % 6}" style="width:36px;height:36px;border-radius:10px;font-size:12px;font-weight:800;flex-shrink:0">${initials(u.name)}</div>
+          <div>
+            <div class="sum-name">${u.name}</div>
+            <div style="height:4px;width:${Math.round(((paid[u.uid]||0)/maxPaid)*120)}px;background:var(--accent);opacity:.35;border-radius:2px;margin-top:4px;min-width:4px"></div>
+          </div>
+        </div>
         <div class="sum-nums">
-          Paid <strong>${fmt(paid[u.uid] || 0)}</strong> · Owes ${fmt(owed[u.uid] || 0)}
+          <div class="sum-paid-amt">${fmt(paid[u.uid] || 0)}</div>
+          <div class="sum-owe-amt">owes ${fmt(owed[u.uid] || 0)}</div>
         </div>
       </div>
     `).join('') +
-    `<div class="total-row"><span>Total</span><span>${fmt(totalAll)}</span></div>`;
+    `<div class="total-row"><span style="color:var(--text-2)">Total</span><span class="total-val">${fmt(totalAll)}</span></div>`;
 
   const settlements = calcSettlements(pairDebt);
-
   document.getElementById('sum-settle').innerHTML = settlements.length
-    ? settlements.map(s => `
-        <div class="owe-item">
-          <span><strong>${userName(s.from)}</strong> pays <strong>${userName(s.to)}</strong></span>
-          <span class="owe-amount">${fmt(s.amount)}</span>
-        </div>`).join('')
-    : '<div class="alert alert-success" style="margin:0">Everyone is settled up! 🎉</div>';
+    ? settlements.map(s => {
+        const fi = allUsers.findIndex(u => u.uid === s.from);
+        const ti = allUsers.findIndex(u => u.uid === s.to);
+        return `
+          <div class="settle-item">
+            <div class="exp-avatar av-${fi < 0 ? 0 : fi % 6}" style="width:36px;height:36px;border-radius:10px;font-size:12px;font-weight:800;flex-shrink:0">${initials(userName(s.from))}</div>
+            <div class="settle-names">
+              <strong>${userName(s.from)}</strong>
+              <span style="color:var(--text-3)"> → </span>
+              <strong>${userName(s.to)}</strong>
+            </div>
+            <div class="exp-avatar av-${ti < 0 ? 1 : ti % 6}" style="width:36px;height:36px;border-radius:10px;font-size:12px;font-weight:800;flex-shrink:0">${initials(userName(s.to))}</div>
+            <span class="settle-amount">${fmt(s.amount)}</span>
+          </div>`;
+      }).join('')
+    : '<div class="alert alert-success" style="margin:0">✓ Everyone is settled up!</div>';
 }
 
 function calcSettlements(pairDebt) {
@@ -676,7 +1073,7 @@ function calcSettlements(pairDebt) {
     processed.add(key);
     processed.add(reverseKey);
     const net = amount - reverse;
-    if      (net >  0.01) result.push({ from, to,   amount: net });
+    if      (net >  0.01) result.push({ from, to,       amount: net  });
     else if (net < -0.01) result.push({ from: to, to: from, amount: -net });
   }
   return result;
